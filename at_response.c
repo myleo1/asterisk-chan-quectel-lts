@@ -1580,7 +1580,14 @@ static int at_response_ccwa(struct pvt* pvt, char* str)
 
 	n = sscanf (str, "+CCWA:%d,%d", &status, &class);
 	if(n == 1)
+	{
+		if (status == CCWA_STATUS_NOT_ACTIVE || status == CCWA_STATUS_ACTIVE)
+		{
+			pvt->has_call_waiting = status == CCWA_STATUS_ACTIVE ? 1 : 0;
+			ast_log (LOG_NOTICE, "Call waiting is %s on device %s\n", status ? "enabled" : "disabled", PVT_ID(pvt));
+		}
 		return 0;
+	}
 	else if (n == 2)
 	{
 		if ((class & CCWA_CLASS_VOICE) && (status == CCWA_STATUS_NOT_ACTIVE || status == CCWA_STATUS_ACTIVE))

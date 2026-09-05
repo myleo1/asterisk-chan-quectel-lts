@@ -2823,6 +2823,23 @@ static int channel_indicate (struct ast_channel* channel, int condition, const v
 
 		case AST_CONTROL_HOLD:
 			ast_moh_start (channel, data, NULL);
+			{
+				struct cpvt *cpvt = ast_channel_tech_pvt(channel);
+				if (cpvt && cpvt->pvt
+					&& cpvt->state != CALL_STATE_ONHOLD
+					&& strcmp(CONF_UNIQ(cpvt->pvt, quec_uac), "1") == 0)
+				{
+					struct cpvt *cpvt2;
+					AST_LIST_TRAVERSE(&cpvt->pvt->chans, cpvt2, entry)
+					{
+						if (cpvt2 != cpvt && cpvt2->state == CALL_STATE_ONHOLD)
+						{
+							at_enqueue_flip_hold(cpvt2);
+							break;
+						}
+					}
+				}
+			}
 			break;
 
 		case AST_CONTROL_UNHOLD:

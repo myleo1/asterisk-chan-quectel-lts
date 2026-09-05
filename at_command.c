@@ -431,8 +431,8 @@ EXPORT_DEF int at_enqueue_dtmf(struct cpvt *cpvt, char digit)
 
 EXPORT_DEF int at_enqueue_set_ccwa(struct cpvt *cpvt, unsigned call_waiting)
 {
-	static const char cmd_ccwa_get[] = "AT+CCWA=1,2,1\r";
-	static const char cmd_ccwa_set[] = "AT+CCWA=%d,%d,%d\r";
+	static const char cmd_ccwa_get[] = "AT+CCWA?\r";
+	static const char cmd_ccwa_set[] = "AT+CCWA=%d\r";
 	int err;
 	call_waiting_t value;
 	at_queue_cmd_t cmds[] = {
@@ -448,7 +448,7 @@ EXPORT_DEF int at_enqueue_set_ccwa(struct cpvt *cpvt, unsigned call_waiting)
 	{
 		value = call_waiting;
 		err = call_waiting == CALL_WAITING_ALLOWED ? 1 : 0;
-		err = at_fill_generic_cmd(&cmds[0], cmd_ccwa_set, err, err, CCWA_CLASS_VOICE);
+		err = at_fill_generic_cmd(&cmds[0], cmd_ccwa_set, err);
 		if (err) {
 			chan_quectel_err = E_UNKNOWN;
 		    return -1;
@@ -565,30 +565,52 @@ EXPORT_DEF int at_enqueue_dial(struct cpvt *cpvt, const char *number, int clir)
 EXPORT_DEF int at_enqueue_answer(struct cpvt *cpvt)
 {
 	pvt_t* pvt = cpvt->pvt;
-	at_queue_cmd_t cmds[] = {
-		ATQ_CMD_DECLARE_DYN(CMD_AT_A),
-//		ATQ_CMD_DECLARE_ST(CMD_AT_DDSETEX, cmd_ddsetex2),
-		};\
-	int count = ITEMS_OF(cmds);
 	const char * cmd1;
 
 	if(cpvt->state == CALL_STATE_INCOMING)
 	{
+		at_queue_cmd_t cmds[] = {
+			ATQ_CMD_DECLARE_DYN(CMD_AT_A),
+		};
+		int count = ITEMS_OF(cmds);
+
 /* FIXME: channel number? */
              if (pvt->is_simcom) {
 		cmd1 = "AT+CPCMREG=0;A\r"; }
-             else if (strcmp(CONF_UNIQ(pvt, quec_uac),"1") == 0) { 
+             else if (strcmp(CONF_UNIQ(pvt, quec_uac),"1") == 0) {
                 cmd1 = "AT+QPCMV=0;+QPCMV=1,2;A\r"; }
-             else { 
+             else {
                 cmd1 = "AT+QPCMV=0;+QPCMV=1,0;A\r"; }
 
+		if (at_fill_generic_cmd(&cmds[0], cmd1, cpvt->call_idx) != 0) {
+			chan_quectel_err = E_UNKNOWN;
+			return -1;
+		}
+		if (at_queue_insert(cpvt, cmds, count, 1) != 0) {
+			chan_quectel_err = E_QUEUE;
+			return -1;
+		}
+             if (pvt->is_simcom) {
+
+                sleep(1);
+                voice_enable(pvt);
+                                  }
 	}
 	else if(cpvt->state == CALL_STATE_WAITING)
 	{
-		cmds[0].cmd = CMD_AT_CHLD_2x;
-		cmd1 = "AT+CHLD=2%d\r";
-/* no need CMD_AT_DDSETEX in this case? */
-		count--;
+		at_queue_cmd_t cmds[] = {
+			ATQ_CMD_DECLARE_DYN(CMD_AT_CHLD_2x),
+			ATQ_CMD_DECLARE_ST(CMD_AT_CLCC, cmd_clcc),
+		};
+
+		if (at_fill_generic_cmd(&cmds[0], "AT+CHLD=2%d\r", cpvt->call_idx) != 0) {
+			chan_quectel_err = E_UNKNOWN;
+			return -1;
+		}
+		if (at_queue_insert(cpvt, cmds, ITEMS_OF(cmds), 1) != 0) {
+			chan_quectel_err = E_QUEUE;
+			return -1;
+		}
 	}
 	else
 	{
@@ -596,19 +618,6 @@ EXPORT_DEF int at_enqueue_answer(struct cpvt *cpvt)
 		return -1;
 	}
 
-	if (at_fill_generic_cmd(&cmds[0], cmd1, cpvt->call_idx) != 0) {
-		chan_quectel_err = E_UNKNOWN;
-		return -1;
-	}
-	if (at_queue_insert(cpvt, cmds, count, 1) != 0) {
-		chan_quectel_err = E_QUEUE;
-		return -1;
-	}
-             if (pvt->is_simcom) {
-
-                sleep(1);
-                voice_enable(pvt);
-                                  }
 	return 0;
 }
 
