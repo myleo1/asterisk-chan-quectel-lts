@@ -417,6 +417,12 @@ static int at_response_ok (struct pvt* pvt, at_res_t res)
 			case CMD_AT_CIMI:
 			case CMD_AT_CPIN:
 			case CMD_AT_CCWA_SET:
+				if (CONF_SHARED(pvt, callwaiting) == CALL_WAITING_ALLOWED)
+					pvt->has_call_waiting = 1;
+				else if (CONF_SHARED(pvt, callwaiting) == CALL_WAITING_DISALLOWED)
+					pvt->has_call_waiting = 0;
+				ast_debug (3, "[%s] %s sent successfully, has_call_waiting=%d\n", PVT_ID(pvt), at_cmd2str (ecmd->cmd), pvt->has_call_waiting);
+				break;
 			case CMD_AT_CCWA_STATUS:
 			case CMD_AT_CHLD_2:
 			case CMD_AT_CHLD_3:
@@ -448,7 +454,7 @@ static int at_response_ok (struct pvt* pvt, at_res_t res)
 
 				pvt->has_voice = 1;
                                 pvt->is_simcom = 0;
-       
+
 				break;
 			case CMD_AT_CVOICE2:
 				ast_debug (1, "[%s] Simcom has voice support\n", PVT_ID(pvt));
@@ -460,7 +466,7 @@ static int at_response_ok (struct pvt* pvt, at_res_t res)
                                 static const char cmd_atrcend[] = "AT$QCRCIND=1\r";
                                 static const at_queue_cmd_t cmds1[] = {
 		                ATQ_CMD_DECLARE_STIT(CMD_AT_Z, cmd_atrcend, ATQ_CMD_TIMEOUT_MEDIUM, 0),
-		                                                       }; 
+		                                                       };
 	                        if (at_queue_insert_const(&pvt->sys_chan, cmds1, ITEMS_OF(cmds1), 1) != 0) {
 		                chan_quectel_err = E_QUEUE;
 		                return -1;
@@ -543,7 +549,7 @@ static int at_response_ok (struct pvt* pvt, at_res_t res)
 				ast_debug (1, "[%s] %s sent successfully\n", PVT_ID(pvt), at_cmd2str (ecmd->cmd));
 				break;
 			case CMD_AT_CHUP:
-     
+
 			case CMD_AT_CHLD_1x:
 				CPVT_RESET_FLAGS(task->cpvt, CALL_FLAG_NEED_HANGUP);
 				ast_debug (1, "[%s] Successful hangup for call idx %d\n", PVT_ID(pvt), task->cpvt->call_idx);
@@ -651,7 +657,7 @@ static void log_cmd_response_error(const struct pvt* pvt, const at_queue_cmd_t *
 	}
 
 	va_start(ap, fmt);
-	vsnprintf(tempbuff, 512, fmt, ap);	
+	vsnprintf(tempbuff, 512, fmt, ap);
 	ast_log(LOG_ERROR, "%s", tempbuff);
 	va_end(ap);
 }
@@ -838,8 +844,8 @@ static int at_response_error (struct pvt* pvt, at_res_t res)
                                 sleep(1);
                                 pvt->t0 += 1;
                                 voice_enable(pvt);
-                                break;                                
-                                
+                                break;
+
 
 			case CMD_AT_DDSETEX0:
 //                              log_cmd_response_error(pvt, ecmd, "[%s] Disable audio with %s failed, retrying...\n", PVT_ID(pvt), at_cmd2str(ecmd->cmd));
@@ -1052,7 +1058,7 @@ static int at_response_orig (struct pvt* pvt, const char* str)
 		if(cpvt)
 		{
 /* FIXME: delay until CLCC handle?
-*/                
+*/
                         if (!pvt->is_simcom) pvt->t0 = uptime();
                         pvt->call_estb = 1;
 			PVT_STAT(pvt, calls_answered[cpvt->dir]) ++;
@@ -1070,7 +1076,7 @@ static int at_response_orig (struct pvt* pvt, const char* str)
 		ast_log (LOG_ERROR, "[%s] answered not voice incoming call type '%d' idx %d, skipped\n", PVT_ID(pvt), call_type, call_index);
 	return 0;
         }
-        
+
         if (sscanf (str, "^DSCI:%d,%*d,6,%d,%*s", &call_index, &call_type) == 2 && call_type == 0)
         {
 	int duration   = 0;
@@ -1120,7 +1126,7 @@ static int at_response_orig (struct pvt* pvt, const char* str)
 	}
 
 
-	
+
 
 	ast_debug (1, "[%s] ORIG Received call_index: %d call_type %d\n", PVT_ID(pvt), call_index, call_type);
 
@@ -1257,11 +1263,11 @@ static int at_response_cend (struct pvt * pvt, const char* str)
 	{
 //		ast_log (LOG_ERROR, "[%s] CEND event for unknown call idx '%d'\n", PVT_ID(pvt), call_index);
 	}
-        
+
 
 	return 0;
 }
-#endif 
+#endif
 
 /*!
  * \brief Handle +CSCA response
