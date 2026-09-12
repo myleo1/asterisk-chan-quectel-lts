@@ -441,6 +441,10 @@ static int at_response_ok (struct pvt* pvt, at_res_t res)
 				ast_debug (1, "[%s] registration info enabled\n", PVT_ID(pvt));
 				break;
 
+			case CMD_AT_CEREG_INIT:
+				ast_debug (1, "[%s] LTE registration info enabled\n", PVT_ID(pvt));
+				break;
+
 			case CMD_AT_CREG:
 				ast_debug (1, "[%s] registration query sent\n", PVT_ID(pvt));
 				break;
@@ -738,6 +742,10 @@ static int at_response_error (struct pvt* pvt, at_res_t res)
 
 			case CMD_AT_CREG_INIT:
 				log_cmd_response_error(pvt, ecmd, "[%s] Error enabling registration info\n", PVT_ID(pvt));
+				goto e_return;
+
+			case CMD_AT_CEREG_INIT:
+				log_cmd_response_error(pvt, ecmd, "[%s] Error enabling LTE registration info\n", PVT_ID(pvt));
 				goto e_return;
 
 			case CMD_AT_CREG:
@@ -2149,6 +2157,44 @@ static int at_response_cops (struct pvt* pvt, char* str)
 }
 
 /*!
+ * \brief Re-evaluate the device ready state from the GSM and LTE domains
+ * \param pvt -- pvt structure
+ *
+ * The device is considered ready when either the GSM-domain (+CREG) or the
+ * LTE-domain (+CEREG) reports a successful registration. Only an actual
+ * ready <-> not-ready transition triggers the CCWA setup and the
+ * Register/Unregister manager events.
+ */
+
+static void quectel_update_registration (struct pvt* pvt)
+{
+	int	old;
+	int	ready;
+
+	old = pvt->gsm_registered;
+	ready = (pvt->gsm_domain_registered || pvt->lte_registered) ? 1 : 0;
+
+	if (ready == old)
+	{
+		return;
+	}
+
+	if (ready)
+	{
+		if (CONF_SHARED(pvt, callwaiting) != CALL_WAITING_AUTO)
+			at_enqueue_set_ccwa(&pvt->sys_chan, CONF_SHARED(pvt, callwaiting));
+
+		pvt->gsm_registered = 1;
+		manager_event_device_status(PVT_ID(pvt), "Register");
+	}
+	else
+	{
+		pvt->gsm_registered = 0;
+		manager_event_device_status(PVT_ID(pvt), "Unregister");
+	}
+}
+
+/*!
  * \brief Handle +CREG response Here we get the GSM registration status
  * \param pvt -- pvt structure
  * \param str -- string containing response (null terminated)
@@ -2174,21 +2220,46 @@ static int at_response_creg (struct pvt* pvt, char* str, size_t len)
 		return 0;
 	}
 
-	if (d)
+	pvt->gsm_domain_registered = d ? 1 : 0;
+	quectel_update_registration (pvt);
+
+	if (lac)
 	{
-//#ifdef ISSUE_CCWA_STATUS_CHECK
-		/* only if gsm_registered 0 -> 1 ? */
-		if(!pvt->gsm_registered && CONF_SHARED(pvt, callwaiting) != CALL_WAITING_AUTO)
-			at_enqueue_set_ccwa(&pvt->sys_chan, CONF_SHARED(pvt, callwaiting));
-//#endif
-		pvt->gsm_registered = 1;
-		manager_event_device_status(PVT_ID(pvt), "Register");
+		ast_copy_string (pvt->location_area_code, lac, sizeof (pvt->location_area_code));
 	}
-	else
+
+	if (ci)
 	{
-		pvt->gsm_registered = 0;
-		manager_event_device_status(PVT_ID(pvt), "Unregister");
+		ast_copy_string (pvt->cell_id, ci, sizeof (pvt->cell_id));
 	}
+
+	return 0;
+}
+
+/*!
+ * \brief Handle +CEREG response Here we get the LTE registration status
+ * \param pvt -- pvt structure
+ * \param str -- string containing response (null terminated)
+ * \param len -- string lenght
+ * \retval  0 success
+ * \retval -1 error
+ */
+
+static int at_response_cereg (struct pvt* pvt, char* str, size_t len)
+{
+	int	d;
+	int	lte_reg_status;
+	char*	lac;
+	char*	ci;
+
+	if (at_parse_creg (str, len, &d, &lte_reg_status, &lac, &ci))
+	{
+		ast_verb (1, "[%s] Error parsing CEREG: '%.*s'\n", PVT_ID(pvt), (int) len, str);
+		return 0;
+	}
+
+	pvt->lte_registered = d ? 1 : 0;
+	quectel_update_registration (pvt);
 
 	if (lac)
 	{
@@ -2410,6 +2481,11 @@ int at_response (struct pvt* pvt, const struct iovec iov[2], int iovcnt, at_res_
 			case RES_CREG:
 				/* An error here is not fatal. Just keep going. */
 				at_response_creg (pvt, str, len);
+				return 0;
+
+			case RES_CEREG:
+				/* An error here is not fatal. Just keep going. */
+				at_response_cereg (pvt, str, len);
 				return 0;
 
 			case RES_COPS:

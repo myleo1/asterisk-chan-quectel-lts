@@ -309,7 +309,9 @@ typedef struct pvt
 
 	volatile unsigned int	connected:1;			/*!< do we have an connection to a device */
 	unsigned int		initialized:1;			/*!< whether a service level connection exists or not */
-	unsigned int		gsm_registered:1;		/*!< do we have an registration to a GSM */
+	unsigned int		gsm_registered:1;		/*!< do we have any GSM or LTE registration (device ready) */
+	unsigned int		gsm_domain_registered:1;	/*!< GSM-domain (+CREG) registration status */
+	unsigned int		lte_registered:1;		/*!< LTE-domain (+CEREG) registration status */
 	unsigned int		dialing;			/*!< HW state; true from ATD response OK until CEND or CONN for this call idx */
 	unsigned int		ring:1;				/*!< HW state; true if has incoming call from first RING until CEND or CONN */
 	unsigned int		cwaiting:1;			/*!< HW state; true if has incoming call waiting from first CCWA until CEND or CONN for */

@@ -585,6 +585,8 @@ static void disconnect_quectel (struct pvt* pvt)
 		pvt->sms_scenter[0] = '\0';
 
 		pvt->gsm_registered	= 0;
+		pvt->gsm_domain_registered = 0;
+		pvt->lte_registered	= 0;
 		pvt->has_sms = 0;
 		pvt->has_voice = 0;
 		pvt->has_call_waiting = 0;
