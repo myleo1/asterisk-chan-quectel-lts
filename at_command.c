@@ -140,7 +140,6 @@ EXPORT_DEF int at_enqueue_initialization(struct cpvt *cpvt, at_cmd_t from_comman
 	static const char cmd22[] = "AT+CPMS=\"SM\",\"SM\",\"SM\"\r";
 	static const char cmd23[] = "AT+CNMI=2,1,0,2,0\r";
 	static const char cmd24[] = "AT+CSQ\r";
-	static const char cmd_ccwa_query[] = "AT+CCWA?\r";
 
 	static const at_queue_cmd_t st_cmds[] = {
 		ATQ_CMD_DECLARE_ST(CMD_AT, cmd_at),
@@ -176,14 +175,11 @@ EXPORT_DEF int at_enqueue_initialization(struct cpvt *cpvt, at_cmd_t from_comman
 			/* pvt->initialized = 1 after successful of CMD_AT_CNMI */
 		ATQ_CMD_DECLARE_ST(CMD_AT_CNMI, cmd23),		/* New SMS Notification Setting +CNMI=[<mode>[,<mt>[,<bm>[,<ds>[,<bfr>]]]]] */
 		ATQ_CMD_DECLARE_ST(CMD_AT_CSQ, cmd24),		/* Query Signal quality */
-		ATQ_CMD_DECLARE_DYNIT(CMD_AT_CCWA_SET, ATQ_CMD_TIMEOUT_MEDIUM, 0),		/* apply call waiting setting */
-		ATQ_CMD_DECLARE_STIT(CMD_AT_CCWA_STATUS, cmd_ccwa_query, ATQ_CMD_TIMEOUT_MEDIUM, 0),	/* query call waiting status */
 		};
 	unsigned in, out;
 	int begin = -1;
 	int err;
 	char * ptmp1 = NULL;
-	char * ptmp2 = NULL;
 	pvt_t * pvt = cpvt->pvt;
 	at_queue_cmd_t cmds[ITEMS_OF(st_cmds)];
 
@@ -202,9 +198,6 @@ EXPORT_DEF int at_enqueue_initialization(struct cpvt *cpvt, at_cmd_t from_comman
 			continue;
 		if(st_cmds[in].cmd == CMD_AT_U2DIAG && CONF_SHARED(pvt, u2diag) == -1)
 			continue;
-		if((st_cmds[in].cmd == CMD_AT_CCWA_SET || st_cmds[in].cmd == CMD_AT_CCWA_STATUS)
-			&& CONF_SHARED(pvt, callwaiting) == CALL_WAITING_AUTO)
-			continue;
 
 		memcpy(&cmds[out], &st_cmds[in], sizeof(st_cmds[in]));
 
@@ -214,13 +207,6 @@ EXPORT_DEF int at_enqueue_initialization(struct cpvt *cpvt, at_cmd_t from_comman
 			if(err)
 				goto failure;
 			ptmp1 = cmds[out].data;
-		}
-		if(cmds[out].cmd == CMD_AT_CCWA_SET)
-		{
-			err = at_fill_generic_cmd(&cmds[out], "AT+CCWA=%d\r", CONF_SHARED(pvt, callwaiting) == CALL_WAITING_ALLOWED ? 1 : 0);
-			if(err)
-				goto failure;
-			ptmp2 = cmds[out].data;
 		}
 		if(cmds[out].cmd == from_command)
 			begin = out;
@@ -233,8 +219,6 @@ EXPORT_DEF int at_enqueue_initialization(struct cpvt *cpvt, at_cmd_t from_comman
 failure:
 	if(ptmp1)
 		ast_free(ptmp1);
-	if(ptmp2)
-		ast_free(ptmp2);
 	return err;
 }
 

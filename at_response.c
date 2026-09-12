@@ -2184,20 +2184,33 @@ static void quectel_update_registration (struct pvt* pvt)
 	old = pvt->gsm_registered;
 	ready = (pvt->gsm_domain_registered || pvt->lte_registered) ? 1 : 0;
 
-	if (ready == old)
-	{
-		return;
-	}
-
 	if (ready)
 	{
-		pvt->gsm_registered = 1;
-		manager_event_device_status(PVT_ID(pvt), "Register");
+		if (!old)
+		{
+			pvt->gsm_registered = 1;
+			manager_event_device_status(PVT_ID(pvt), "Register");
+		}
+
+		/* Apply CCWA whenever the configured value differs from the
+		   confirmed device state. has_call_waiting is cleared on
+		   disconnect/unregister, so this re-applies the setting after
+		   module reset or when a queued command was dropped. */
+		if (CONF_SHARED(pvt, callwaiting) != CALL_WAITING_AUTO)
+		{
+			int desired = (CONF_SHARED(pvt, callwaiting) == CALL_WAITING_ALLOWED) ? 1 : 0;
+			if (desired != pvt->has_call_waiting)
+				at_enqueue_set_ccwa(&pvt->sys_chan, CONF_SHARED(pvt, callwaiting));
+		}
 	}
 	else
 	{
-		pvt->gsm_registered = 0;
-		manager_event_device_status(PVT_ID(pvt), "Unregister");
+		if (old)
+		{
+			pvt->gsm_registered = 0;
+			pvt->has_call_waiting = 0;
+			manager_event_device_status(PVT_ID(pvt), "Unregister");
+		}
 	}
 }
 
