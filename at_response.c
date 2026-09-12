@@ -2170,8 +2170,10 @@ static int at_response_cops (struct pvt* pvt, char* str)
  *
  * The device is considered ready when either the GSM-domain (+CREG) or the
  * LTE-domain (+CEREG) reports a successful registration. Only an actual
- * ready <-> not-ready transition triggers the CCWA setup and the
- * Register/Unregister manager events.
+ * ready <-> not-ready transition triggers the Register/Unregister manager
+ * events. The Call Waiting setting (AT+CCWA) itself is applied as part of
+ * the initialization sequence, so restarting the device re-applies it on
+ * every (re)initialization.
  */
 
 static void quectel_update_registration (struct pvt* pvt)
@@ -2189,9 +2191,6 @@ static void quectel_update_registration (struct pvt* pvt)
 
 	if (ready)
 	{
-		if (CONF_SHARED(pvt, callwaiting) != CALL_WAITING_AUTO)
-			at_enqueue_set_ccwa(&pvt->sys_chan, CONF_SHARED(pvt, callwaiting));
-
 		pvt->gsm_registered = 1;
 		manager_event_device_status(PVT_ID(pvt), "Register");
 	}
