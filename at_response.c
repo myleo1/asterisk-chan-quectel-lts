@@ -449,6 +449,10 @@ static int at_response_ok (struct pvt* pvt, at_res_t res)
 				ast_debug (1, "[%s] registration query sent\n", PVT_ID(pvt));
 				break;
 
+			case CMD_AT_CEREG:
+				ast_debug (1, "[%s] LTE registration query sent\n", PVT_ID(pvt));
+				break;
+
 			case CMD_AT_CNUM:
 				ast_debug (1, "[%s] Subscriber phone number query successed\n", PVT_ID(pvt));
 				break;
@@ -745,11 +749,15 @@ static int at_response_error (struct pvt* pvt, at_res_t res)
 				goto e_return;
 
 			case CMD_AT_CEREG_INIT:
-				log_cmd_response_error(pvt, ecmd, "[%s] Error enabling LTE registration info\n", PVT_ID(pvt));
-				goto e_return;
+				ast_debug (1, "[%s] Error enabling LTE registration info\n", PVT_ID(pvt));
+				break;
 
 			case CMD_AT_CREG:
 				ast_debug (1, "[%s] Error getting registration info\n", PVT_ID(pvt));
+				break;
+
+			case CMD_AT_CEREG:
+				ast_debug (1, "[%s] Error getting LTE registration info\n", PVT_ID(pvt));
 				break;
 
 			case CMD_AT_CVOICE:

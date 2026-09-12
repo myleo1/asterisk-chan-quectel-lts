@@ -127,6 +127,7 @@ EXPORT_DEF int at_enqueue_initialization(struct cpvt *cpvt, at_cmd_t from_comman
 	static const char cmd14[] = "AT+CREG=2\r";
 	static const char cmd14a[] = "AT+CEREG=2\r";
 	static const char cmd15[] = "AT+CREG?\r";
+	static const char cmd15a[] = "AT+CEREG?\r";
 	static const char cmd16[] = "AT+CNUM\r";
 
 	static const char cmd17[] = "AT+QPCMV?\r";
@@ -159,6 +160,7 @@ EXPORT_DEF int at_enqueue_initialization(struct cpvt *cpvt, at_cmd_t from_comman
 		ATQ_CMD_DECLARE_STI(CMD_AT_CREG_INIT,cmd14),	/* GSM registration status setting */
 		ATQ_CMD_DECLARE_STI(CMD_AT_CEREG_INIT,cmd14a),	/* LTE registration status setting */
 		ATQ_CMD_DECLARE_ST(CMD_AT_CREG, cmd15),		/* GSM registration status */
+		ATQ_CMD_DECLARE_ST(CMD_AT_CEREG, cmd15a),		/* LTE registration status */
 		ATQ_CMD_DECLARE_STI(CMD_AT_CNUM, cmd16),		/* Get Subscriber number */
 		ATQ_CMD_DECLARE_STI(CMD_AT_CVOICE, cmd17),	/* read the current voice mode, and return sampling rate、data bit、frame period */
 		ATQ_CMD_DECLARE_STI(CMD_AT_CVOICE2, cmd17a),
@@ -682,13 +684,28 @@ EXPORT_DEF int at_enqueue_flip_hold(struct cpvt *cpvt)
  */
 EXPORT_DEF int at_enqueue_ping(struct cpvt *cpvt)
 {
-	static const at_queue_cmd_t cmds[] = {
-		ATQ_CMD_DECLARE_STIT(CMD_AT, cmd_at, ATQ_CMD_TIMEOUT_SHORT, 0),
-		};
+	static const char cmd_cereg[] = "AT+CEREG?\r";
+	static const char cmd_cvoice[] = "AT+QPCMV?\r";
 
-	if (at_queue_insert_const(cpvt, cmds, ITEMS_OF(cmds), 1) != 0) {
-		chan_quectel_err = E_QUEUE;
-		return -1;
+	if (cpvt->pvt && !cpvt->pvt->has_voice) {
+		static const at_queue_cmd_t cmds[] = {
+			ATQ_CMD_DECLARE_STIT(CMD_AT, cmd_at, ATQ_CMD_TIMEOUT_SHORT, 0),
+			ATQ_CMD_DECLARE_ST(CMD_AT_CEREG, cmd_cereg),
+			ATQ_CMD_DECLARE_ST(CMD_AT_CVOICE, cmd_cvoice),
+			};
+		if (at_queue_insert_const(cpvt, cmds, ITEMS_OF(cmds), 1) != 0) {
+			chan_quectel_err = E_QUEUE;
+			return -1;
+		}
+	} else {
+		static const at_queue_cmd_t cmds[] = {
+			ATQ_CMD_DECLARE_STIT(CMD_AT, cmd_at, ATQ_CMD_TIMEOUT_SHORT, 0),
+			ATQ_CMD_DECLARE_ST(CMD_AT_CEREG, cmd_cereg),
+			};
+		if (at_queue_insert_const(cpvt, cmds, ITEMS_OF(cmds), 1) != 0) {
+			chan_quectel_err = E_QUEUE;
+			return -1;
+		}
 	}
 	return 0;
 }
